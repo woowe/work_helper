@@ -5,9 +5,41 @@
     <title>Hello World!</title>
   </head>
   <body>
-    <h1>Hello World!</h1>
-    We are using node <script>document.write(process.versions.node)</script>,
-    Chrome <script>document.write(process.versions.chrome)</script>,
-    and Electron <script>document.write(process.versions.electron)</script>.
+      <div class="login-status"></div>
+      <input class="query" style="width: 100%" placeholder="" onkeypress="handleKeyPress(event)" value="Select Id, Name FROM Account">
+      <div><div class="output"></div></div>
+      <script src="./jquery.js"></script>
+      <script>
+        var $ = require('jquery');
+        var jsforce = require('jsforce');
+        var conn = new jsforce.Connection();
+        conn.login('jcardinal@dealersocket.com', '!@!#!$15q!!nXPNyRQoIICr133t63EfLrp0', function(err, res) {
+            console.log(conn.accessToken);
+            console.log(conn.instanceUrl);
+            // logged in user property
+            console.log("User ID: " + res.id);
+            console.log("Org ID: " + res.organizationId);
+            
+            if(err) { $(".login-status").text("Login failure"); }
+            $(".login-status").text("Login success");
+        });
+        
+        function handleKeyPress(e) {
+            var key=e.keyCode || e.which;
+            if (key==13){
+                doQuery($(".query").val(), $(".output"));
+            }
+        }
+        function doQuery(input, output) {
+            console.log(input);
+            conn.query(input, function(err, res) {
+                if (err) { return $(output).text("ERROR: " + err); }
+                $(output).text("SUCCESS: " + res);
+                console.log(res);
+            });
+        }          
+        
+      </script>
+          
   </body>
 </html>
