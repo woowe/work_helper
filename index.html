@@ -8,7 +8,9 @@
       <div class="login-status"></div>
       <input class="query" style="width: 100%" placeholder="" onkeypress="handleKeyPress(event)" value="Select Id, Name FROM Account">
       <div><div class="output"></div></div>
+      <div class="tester"  style="background-color: red;" data-dimension-fix="height: (eq (+ (|| .navbar .navbar-collapse) .info-wrapper))"></div>
       <script src="./jquery.js"></script>
+      <script src="./test.js"></script>
       <script>
         var $ = require('jquery');
         var jsforce = require('jsforce');
@@ -40,6 +42,5 @@
         }          
         
       </script>
-          
   </body>
 </html>

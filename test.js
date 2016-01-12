@@ -1,3 +1,4 @@
+var $ = require('jquery');
 function applyDimension(target, max_dim, feild, value) {
     $(target).css(feild, max_dim * (100 / parseInt(value)) + "px");
 }
@@ -7,45 +8,62 @@ function removeChar(txt, index) {
 }
 
 function parse(txt) {
-    var ret = {
-        func: "",
-        args: [],
-        parent: null
-    };
-    height: (eq (+ .info-wrapper (|| .navbar .navbar-collapse)))
-    {
-        func: "eq",
-        parent: null
-        args: [
-            {
-                func: "+"
-                parent: eq
-                args: [
-                    '.info-wrapper',
-                    {
-                        func: "||",
-                        parent: +
-                        args: [
-                            '.navbar',
-                            '.navbar-collapse'
-                        ]
-                    }
-                ]
-            }
-        ]
-    }
-    var cfunc = ret;
+    var ret = null;
+    // usage:
+    // height: (eq (+ .info-wrapper (|| .navbar .navbar-collapse)))
+    // data structure:
+    // {
+    //     func: "eq",
+    //     parent: null
+    //     args: [
+    //         {
+    //             func: "+"
+    //             parent: obj<eq>
+    //             args: [
+    //                 '.info-wrapper',
+    //                 {
+    //                     func: "||",
+    //                     parent: obj<+>
+    //                     args: [
+    //                         '.navbar',
+    //                         '.navbar-collapse'
+    //                     ]
+    //                 }
+    //             ]
+    //         }
+    //     ]
+    // }
+    var cfunc = null;
     var prev_func = null;
     var quote = false;
     var token = "";
+    var addTo = function(cfunc, token) {
+        if (token.length > 0) {
+            if (cfunc.func == "") { cfunc.func = token;}
+            else {
+                cfunc.args.push(token);
+            }
+            return "";
+        }
+        return token;
+    }
     for(var i = 0; i < txt.length; ++i) {
         switch (txt[i]) {
             case "(":
+                if (ret == null) {
+                    ret = {
+                        func: "",
+                        args: [],
+                        parent: null
+                    };
+                    cfunc = ret;
+                    break;
+                }
                 if (!quote) {
                     prev_func = cfunc;
                     cfunc.args.push({
                         func: "",
-                        args: []
+                        args: [],
                         parent: cfunc
                     });
                     cfunc = cfunc.args[cfunc.args.length - 1];
@@ -53,8 +71,16 @@ function parse(txt) {
                 break;
             case ")":
                 if (!quote) {
+                    if (token.length > 0) {
+                        if (cfunc.func == "") { cfunc.func = token;}
+                        else {
+                            cfunc.args.push(token);
+                        }
+                        token = "";
+                    }
                     cfunc = prev_func;
                     prev_func = cfunc.parent;
+                    
                 }
                 break;
             case "'":
@@ -71,9 +97,11 @@ function parse(txt) {
                 }
                 break;
             default:
+                token += txt[i];
                 break;
         }
     }
+    return ret;
 }
 
 var funcs = {
@@ -99,16 +127,13 @@ var funcs = {
 
 function handleDimensions(targets) {
     $.each($(targets), function(i, e) {
-        var val = parseOperator($(e).attr("data-dimension-fix"), ":");
+        var text = $(e).attr("data-dimension-fix");
+        var first_colon = text.indexOf(":");
+        var first_paren = text.indexOf("(");
+        var feild_val = [ text.substring(0, first_colon), text.substring(first_paren, text.length - 1) ];
+        console.log(feild_val); 
+        var val = parse(feild_val[1]);
         console.log(val);
-
-        switch (val[0]) {
-            case "height":
-
-                break;
-            default:
-
-        }
     });
 }
 
@@ -121,11 +146,4 @@ console.log("---------- END INIT CALL ----------");
 window.onresize = function() {
     var targets = $("[data-dimension-fix]");
     handleDimensions(targets);
-}
-
-
-var day_ele   = $(".com-home-page .dealerships-section .dealer-info .department-hours .day");
-$.each($(day_ele), function(i, e) {
-    var day_width = parseInt($(e).width());
-    $(e).css("margin-right", (100 - day_width) + "px");
-});
+};
