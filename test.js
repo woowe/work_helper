@@ -1,16 +1,8 @@
 var $ = require('jquery');
-function applyDimension(target, max_dim, feild, value) {
-    $(target).css(feild, max_dim * (100 / parseInt(value)) + "px");
-}
-
-function removeChar(txt, index) {
-    return txt.substring(0, index) + txt.substring(index + 1, txt.length);
-}
-
 function parse(txt) {
     var ret = null;
     // usage:
-    // height: (eq (+ .info-wrapper (|| .navbar .navbar-collapse)))
+    // height: (eq (+ '.info-wrapper' (|| '.navbar' '.navbar-collapse')))
     // data structure:
     // {
     //     func: "eq",
@@ -21,6 +13,7 @@ function parse(txt) {
     //             parent: obj<eq>
     //             args: [
     //                 '.info-wrapper',
+
     //                 {
     //                     func: "||",
     //                     parent: obj<+>
@@ -79,8 +72,8 @@ function parse(txt) {
                         token = "";
                     }
                     cfunc = prev_func;
-                    prev_func = cfunc.parent;
-                    
+                    if(cfunc != null) { prev_func = cfunc.parent; }
+
                 }
                 break;
             case "'":
@@ -104,25 +97,66 @@ function parse(txt) {
     return ret;
 }
 
+function throwWrongArgs(args, len, funcName) {
+    if (args.length != len) { throw Error("Not the right amount of args provided to " + funcName); }
+}
+
 var funcs = {
     "fill": function(args) {
-        if (args.length != 2) { throw Error("Not the right amount of args provided to FILL"); }
+        throwWrongArgs(args, 2, "fill");
         var e = args[0];
         var feild = args[1];
         if (feild == "height") {
             var parent = $(e).parent();
-            $(e).height($(parent).height());
             if($(parent).innerWidth() <= $(e).outerWidth()) {
-                $(e).height("auto");
+                return "auto";
             }
+            return $(parent).height();
         }
     },
     "eq": function(args) {
-        if (args.length != 3) { throw Error("Not the right amount of args provided to EQ"); }
+        throwWrongArgs(args, 3, "eq");
         var e = args[0];
         var feild = args[1];
-        $(e).css(feild, args[2]);
+        if(typeof(args[2]) == "number") { return args[2]; }
+        return parseInt($(args[2]).css(feild));
+    },
+    "+": function(args) {
+        throwWrongArgs(args, 4, "+");
+        var feild = args[1];
+        for(var i = 2; i < args.length; ++i) {
+            if(typeof(args[i]) == "string"){
+                args[i] = parseInt($(args[i]).css(feild));
+            }
+        }
+        return args[2] + args[3];
+    },
+    "||": function(args) {
+        throwWrongArgs(args, 4, "||");
+        var feild = args[1];
+        if($(args[2]).css("display") != "none") {
+            return parseInt($(args[2]).css(feild));
+        }
+        return parseInt($(args[3]).css(feild));
     }
+}
+
+function cust_find(array, func) {
+    var ret;
+    for(var i = 0; i < array.length; ++i) {
+        ret = func(array[i], i, array);
+        if(ret != null) {
+            return ret;
+        }
+    }
+    return null;
+}
+
+function findObj(element, index, array) {
+    if (typeof(element.func) != "undefined") {
+        return { ele: element, idx: index };
+    }
+    return null;
 }
 
 function handleDimensions(targets) {
@@ -130,19 +164,52 @@ function handleDimensions(targets) {
         var text = $(e).attr("data-dimension-fix");
         var first_colon = text.indexOf(":");
         var first_paren = text.indexOf("(");
-        var feild_val = [ text.substring(0, first_colon), text.substring(first_paren, text.length - 1) ];
-        console.log(feild_val); 
+        var feild_val = [ text.substring(0, first_colon), text.substring(first_paren, text.length) ];
+        //console.log(feild_val);
         var val = parse(feild_val[1]);
-        console.log(val);
+        // console.log(i);
+        // console.log(val);
+
+        var cfunc;
+        var next_ele = cust_find(val.args,findObj);
+        var args = [$(e), "height"];
+        if( next_ele != null) {
+            cfunc = next_ele;
+            while(cfunc.ele.parent != null) {
+                while(next_ele != null) {
+                    // console.log(next_ele.ele.args);
+                    next_ele = cust_find(next_ele.ele.args,findObj);
+                    if(next_ele == null) {
+                        break;
+                    }
+                    cfunc = next_ele;
+                    // console.log("Next element: " , cfunc);
+                }
+                // console.log("FUNC: " , cfunc.ele.func , " ARGS: " , cfunc.ele.args);
+                $.merge(args, cfunc.ele.args);
+                var tmp = funcs[cfunc.ele.func](args);
+                // console.log("RESULT FROM " + cfunc.ele.func + " IS " + tmp);
+                // console.log("PARENT: ", cfunc.ele.parent);
+                cfunc.ele.parent.args[cfunc.idx] = tmp;
+                next_ele = { ele: cfunc.ele.parent, idx: 0 };
+                cfunc = { ele: cfunc.ele.parent, idx: 0 };
+                args = [$(e), "height"];
+            }
+        }
+        $.merge(args, val.args);
+        // console.log(args);
+        // console.log(val);
+        // console.log("RESULT: " + funcs[val.func](args));
+        $(e).css(feild_val[0], funcs[val.func](args));
     });
 }
 
 
 var targets = $("[data-dimension-fix]");
-console.log("Targets: " + targets.length);
-console.log("---------- INIT CALL ----------");
+// console.log("Targets: " + targets.length);
+// console.log("---------- INIT CALL ----------");
 handleDimensions(targets);
-console.log("---------- END INIT CALL ----------");
+// console.log("---------- END INIT CALL ----------");
 window.onresize = function() {
     var targets = $("[data-dimension-fix]");
     handleDimensions(targets);
